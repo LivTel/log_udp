@@ -1,11 +1,11 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.1 2009-01-09 14:54:37 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.2 2009-01-09 18:03:39 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.2 $
  */
 #include <endian.h>  /* Used to determine whether to byte swap to get network byte order */ 
 #include <byteswap.h> /* Get machine dependent optimized versions of byte swapping functions.  */
@@ -29,7 +29,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.1 2009-01-09 14:54:37 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.2 2009-01-09 18:03:39 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
@@ -183,23 +183,23 @@ int Log_UDP_Send(int socket_id,struct Log_Record_Struct log_record,
 	memcpy(message_buffer+message_buffer_position,&network_java_long,sizeof(int64_t));
 	message_buffer_position += sizeof(int64_t);
 	/* System */
-	strcat(message_buffer+message_buffer_position,log_record.System);
+	strcpy(message_buffer+message_buffer_position,log_record.System);
 	message_buffer_position += strlen(log_record.System);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Sub_System */
-	strcat(message_buffer+message_buffer_position,log_record.Sub_System);
+	strcpy(message_buffer+message_buffer_position,log_record.Sub_System);
 	message_buffer_position += strlen(log_record.Sub_System);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Source_File */
-	strcat(message_buffer+message_buffer_position,log_record.Source_File);
+	strcpy(message_buffer+message_buffer_position,log_record.Source_File);
 	message_buffer_position += strlen(log_record.Source_File);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Source_Instance */
-	strcat(message_buffer+message_buffer_position,log_record.Source_Instance);
+	strcpy(message_buffer+message_buffer_position,log_record.Source_Instance);
 	message_buffer_position += strlen(log_record.Source_Instance);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Function */
-	strcat(message_buffer+message_buffer_position,log_record.Function);
+	strcpy(message_buffer+message_buffer_position,log_record.Function);
 	message_buffer_position += strlen(log_record.Function);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Severity */
@@ -211,11 +211,14 @@ int Log_UDP_Send(int socket_id,struct Log_Record_Struct log_record,
 	memcpy(message_buffer+message_buffer_position,&network_int,sizeof(int));
 	message_buffer_position += sizeof(int);
 	/* Category */
-	strcat(message_buffer+message_buffer_position,log_record.Category);
+	strcpy(message_buffer+message_buffer_position,log_record.Category);
 	message_buffer_position += strlen(log_record.Category);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Message */
-	strcat(message_buffer+message_buffer_position,log_record.Message);
+#if DEBUG > 1
+	fprintf(stdout,"Log_UDP_Send():message='%s'.\n",log_record.Message);
+#endif
+	strcpy(message_buffer+message_buffer_position,log_record.Message);
 	message_buffer_position += strlen(log_record.Message);
 	message_buffer[message_buffer_position++] = '\0';
 	/* Context_Count */
@@ -226,11 +229,11 @@ int Log_UDP_Send(int socket_id,struct Log_Record_Struct log_record,
 	for(i = 0; i < log_context_count; i++)
 	{
 		/* Keyword */
-		strcat(message_buffer+message_buffer_position,log_context_list[i].Keyword);
+		strcpy(message_buffer+message_buffer_position,log_context_list[i].Keyword);
 		message_buffer_position += strlen(log_context_list[i].Keyword);
 		message_buffer[message_buffer_position++] = '\0';
 		/* Value */
-		strcat(message_buffer+message_buffer_position,log_context_list[i].Value);
+		strcpy(message_buffer+message_buffer_position,log_context_list[i].Value);
 		message_buffer_position += strlen(log_context_list[i].Value);
 		message_buffer[message_buffer_position++] = '\0';
 	}
@@ -400,4 +403,7 @@ static int64_t hton64bitl(int64_t n)
 }
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.1  2009/01/09 14:54:37  cjm
+** Initial revision
+**
 */
