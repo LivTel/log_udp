@@ -1,4 +1,4 @@
-# $Header: /home/cjm/cvs/log_udp/test/Makefile,v 1.1 2009-01-09 14:54:01 cjm Exp $
+# $Header: /home/cjm/cvs/log_udp/test/Makefile,v 1.2 2009-01-09 18:21:55 cjm Exp $
 
 include ../../Makefile.common
 include ../Makefile.common
@@ -8,8 +8,8 @@ TESTDIR 	= test
 BINDIR 		= $(LOG_BIN_HOME)/$(TESTDIR)/$(HOSTTYPE)
 DOCSDIR 	= $(LOG_DOC_HOME)/$(TESTDIR)
 
-DEBUG           = 0
-#DEBUG           = 2
+#DEBUG           = 0
+DEBUG           = 2
 CFLAGS 		= -g -I$(INCDIR) -DDEBUG=$(DEBUG)
 DOCFLAGS 	= -static
 
@@ -24,6 +24,8 @@ top: $(PROGS) $(PROGS_STATIC) docs
 
 $(BINDIR)/%: %.o
 	cc -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB) -lm -lc
+
+$(BINDIR)/%_static: $(LT_LIB_HOME)/lib$(LOG_LIBNAME).a
 
 $(BINDIR)/%_static: %.o
 	cc -static -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB) -lm -lc
