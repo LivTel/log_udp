@@ -1,0 +1,10 @@
+# $Header: /home/cjm/cvs/log_udp/Makefile.common,v 1.1 2009-01-12 10:36:59 cjm Exp $
+
+LOG_HOME		=	log_udp
+LOG_SRC_HOME		= 	$(LT_SRC_HOME)/$(LOG_HOME)
+LOG_BIN_HOME		= 	$(LT_BIN_HOME)/$(LOG_HOME)
+LOG_DOC_HOME		= 	$(LT_DOC_HOME)/$(LOG_HOME)
+LOG_LIBNAME		=	$(LOG_HOME)
+#
+# $Log: not supported by cvs2svn $
+#
