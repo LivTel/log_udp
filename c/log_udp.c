@@ -1,11 +1,11 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.2 2009-01-09 18:03:39 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.3 2009-01-14 14:51:31 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.2 $
+ * @version $Revision: 1.3 $
  */
 #include <endian.h>  /* Used to determine whether to byte swap to get network byte order */ 
 #include <byteswap.h> /* Get machine dependent optimized versions of byte swapping functions.  */
@@ -25,11 +25,17 @@
 #include "log_general.h"
 #include "log_udp.h"
 
+/* hash defines */
+/**
+ * Magic word (4 bytes) to distinguish Java and C packets.
+ */
+#define UDP_PACKET_MAGIC_WORD                  (0xC0C0)
+
 /* internal variables */
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.2 2009-01-09 18:03:39 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.3 2009-01-14 14:51:31 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
@@ -133,6 +139,7 @@ int Log_UDP_Open(char *hostname,int port_number,int *socket_id)
  * @param log_context_count The number of context records in log_context_list.
  * @param log_context_list An allocated list of log contexts.
  * @return The routine returns TRUE on success and FALSE on failure.
+ * @see #UDP_PACKET_MAGIC_WORD
  * @see #Log_Record_Struct
  * @see #Log_Context_Struct
  * @see #UDP_Raw_Send
@@ -163,8 +170,8 @@ int Log_UDP_Send(int socket_id,struct Log_Record_Struct log_record,
 		return FALSE;
 	}
 	/* determine length of buffer 
-	** Size of log record + all log contexts + 4 bytes for log context count*/
-	message_buffer_length = sizeof(struct Log_Record_Struct) + sizeof(int) + (log_context_count * 
+	** Size of log record + all log contexts + 4 bytes for log context count + 4 bytes for magic word */
+	message_buffer_length = sizeof(struct Log_Record_Struct) + sizeof(int) + sizeof(int) + (log_context_count * 
 								    sizeof(struct Log_Context_Struct));
 	message_buffer = (char*)malloc(message_buffer_length*sizeof(char));
 	if(message_buffer == NULL)
@@ -178,6 +185,10 @@ int Log_UDP_Send(int socket_id,struct Log_Record_Struct log_record,
 	** Can't just copy whole structure as this may be padded / word aligned. */
 	/* integers should be in network byte order */
 	message_buffer_position = 0;
+	/* magic word - used to differentiate between C and Java packets */
+	network_int = htonl(UDP_PACKET_MAGIC_WORD);
+	memcpy(message_buffer+message_buffer_position,&network_int,sizeof(int));
+	message_buffer_position += sizeof(int);
 	/* Timestamp */
 	network_java_long = hton64bitl(log_record.Timestamp);
 	memcpy(message_buffer+message_buffer_position,&network_java_long,sizeof(int64_t));
@@ -403,6 +414,9 @@ static int64_t hton64bitl(int64_t n)
 }
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.2  2009/01/09 18:03:39  cjm
+** Fixed buffer packing - use strcpy rather than strcat.
+**
 ** Revision 1.1  2009/01/09 14:54:37  cjm
 ** Initial revision
 **
