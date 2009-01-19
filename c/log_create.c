@@ -1,11 +1,11 @@
 /* log_create.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_create.c,v 1.1 2009-01-09 14:54:37 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_create.c,v 1.2 2009-01-19 15:39:06 cjm Exp $
 */
 /**
  * Routines for filling in the Log_Record_Struct and Log_Context_Struct.
  * @author Chris Mottram
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.2 $
  */
 /**
  * This hash define is needed before including source files give us POSIX.4/IEEE1003.1b-1993 prototypes
@@ -43,7 +43,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_create.c,v 1.1 2009-01-09 14:54:37 cjm Exp $";
+static char rcsid[] = "$Id: log_create.c,v 1.2 2009-01-19 15:39:06 cjm Exp $";
 
 /* internal functions */
 static int Log_Create_Timestamp(struct Log_Record_Struct *log_record);
@@ -233,6 +233,35 @@ int Log_Create_Context_List_Add(struct Log_Context_Struct **log_context_list,int
 	return TRUE;
 }
 
+/**
+ * Set the log record's timestamp to something other than 'now'. Used for ingesting old logs etc..
+ * @param time_tm A struct tm, fields within this set to indicate the time to be used.
+ * @param log_record A pointer to the log_record to modify.
+ * @return Returns TRUE on success and FALSE if an error occurs.
+ */
+int Log_Create_Record_Timestamp_Set(struct tm time_tm,struct Log_Record_Struct *log_record)
+{
+	time_t time_secs;
+	int64_t long_current_time;
+
+	if(log_record == NULL)
+	{
+		Log_Error_Number = 110;
+		sprintf(Log_Error_String,"Log_Create_Record_Timestamp_Set:log_record was NULL.");
+		return FALSE;
+	}
+	time_secs = mktime(&time_tm);
+	if(time_secs == -1)
+	{
+		Log_Error_Number = 111;
+		sprintf(Log_Error_String,"Log_Create_Record_Timestamp_Set:mktime returned error.");
+		return FALSE;
+	}
+	long_current_time = (((int64_t)time_secs)*1000);
+	log_record->Timestamp = long_current_time;
+	return TRUE; 
+}
+
 /* ---------------------------------------------------------------
 **  Internal functions 
 ** --------------------------------------------------------------- */
@@ -269,4 +298,7 @@ static int Log_Create_Timestamp(struct Log_Record_Struct *log_record)
 }
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.1  2009/01/09 14:54:37  cjm
+** Initial revision
+**
 */
