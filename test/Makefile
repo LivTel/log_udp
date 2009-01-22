@@ -1,4 +1,4 @@
-# $Header: /home/cjm/cvs/log_udp/test/Makefile,v 1.3 2009-01-09 18:23:10 cjm Exp $
+# $Header: /home/cjm/cvs/log_udp/test/Makefile,v 1.4 2009-01-22 11:16:18 cjm Exp $
 
 include ../../Makefile.common
 include ../Makefile.common
@@ -8,12 +8,12 @@ TESTDIR 	= test
 BINDIR 		= $(LOG_BIN_HOME)/$(TESTDIR)/$(HOSTTYPE)
 DOCSDIR 	= $(LOG_DOC_HOME)/$(TESTDIR)
 
-DEBUG           = 0
-#DEBUG           = 2
+#DEBUG           = 0
+DEBUG           = 2
 CFLAGS 		= -g -I$(INCDIR) -DDEBUG=$(DEBUG)
 DOCFLAGS 	= -static
 
-SRCS 		= ltlog.c
+SRCS 		= ltlog.c messages_to_udp.c tcs_to_udp.c
 
 OBJS 		= $(SRCS:%.c=%.o)
 PROGS 		= $(SRCS:%.c=$(BINDIR)/%)
