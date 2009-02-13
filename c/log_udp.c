@@ -1,19 +1,23 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.3 2009-01-14 14:51:31 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.4 2009-02-13 17:29:41 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.3 $
+ * @version $Revision: 1.4 $
  */
+#ifdef __linux
 #include <endian.h>  /* Used to determine whether to byte swap to get network byte order */ 
 #include <byteswap.h> /* Get machine dependent optimized versions of byte swapping functions.  */
+#endif
 #include <errno.h>   /* Error number definitions */
 #include <fcntl.h>   /* File control definitions */
 #include <netdb.h>
 #include <pthread.h>
+#ifdef __linux
 #include <stdint.h>  /* defines int64_t (Java long) */
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +39,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.3 2009-01-14 14:51:31 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.4 2009-02-13 17:29:41 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
@@ -414,6 +418,9 @@ static int64_t hton64bitl(int64_t n)
 }
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.3  2009/01/14 14:51:31  cjm
+** Added magic word to UDP buffer to differentiate between C and Java packets.
+**
 ** Revision 1.2  2009/01/09 18:03:39  cjm
 ** Fixed buffer packing - use strcpy rather than strcat.
 **
