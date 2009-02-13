@@ -1,11 +1,21 @@
 /* log_udp.h
-** $Header: /home/cjm/cvs/log_udp/include/log_udp.h,v 1.1 2009-01-09 14:54:41 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/include/log_udp.h,v 1.2 2009-02-13 17:27:04 cjm Exp $
 */
 #ifndef LOG_UDP_H
 #define LOG_UDP_H
 
-/* defines int64_t (Java long) */
+/* stdint.h defines int64_t (Java long) but only exists under Linux */
+#ifdef __linux
 #include <stdint.h>
+#endif
+/* solaris definition of int64_t (Java long) ( typedef long long int64_t) */
+#ifdef __sun
+# if __WORDSIZE == 64
+typedef long int                int64_t;
+# else
+typedef long long int           int64_t;
+# endif
+#endif
 
 /* hash defines */
 /**
@@ -182,4 +192,7 @@ extern int Log_UDP_Close(int socket_id);
 #endif
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.1  2009/01/09 14:54:41  cjm
+** Initial revision
+**
 */
