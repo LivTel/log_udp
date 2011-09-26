@@ -1,12 +1,16 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.4 2009-02-13 17:29:41 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.5 2011-09-26 15:53:58 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.4 $
+ * @version $Revision: 1.5 $
  */
+/**
+ * Define BSD Source to get BSD prototypes, including gethostbyname_r.
+ */
+#define _BSD_SOURCE (1)
 #ifdef __linux
 #include <endian.h>  /* Used to determine whether to byte swap to get network byte order */ 
 #include <byteswap.h> /* Get machine dependent optimized versions of byte swapping functions.  */
@@ -39,12 +43,13 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.4 2009-02-13 17:29:41 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.5 2011-09-26 15:53:58 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
 static int UDP_Raw_Recv(int socket_id,char *message_buff,size_t message_buff_len);
 static int64_t hton64bitl(int64_t n);
+static int Get_Host_By_Name(const char *name,char **host_addr_zero);
 
 /* ---------------------------------------------------------------
 **  External functions 
@@ -56,15 +61,17 @@ static int64_t hton64bitl(int64_t n);
  * @param socket_id The address of an integer to store the created socket file descriptor.
  * @return The routine returns TRUE on success and FALSE on failure. If the routine failed,
  *     Log_Error_Number and Log_Error_String are set.
+ * @see #Get_Host_By_Name
  * @see log_general.html#Log_Error_Number
  * @see log_general.html#Log_Error_String
  */
 int Log_UDP_Open(char *hostname,int port_number,int *socket_id)
 {
+	char host_ip[256];
+	char *host_address_ptr = NULL;
 	int socket_errno,retval;
 	unsigned short int network_port_number;
 	in_addr_t saddr;
-	struct hostent *host_entry;
 	struct sockaddr_in remote_addr;
 
 	if(hostname == NULL)
@@ -103,16 +110,16 @@ int Log_UDP_Open(char *hostname,int port_number,int *socket_id)
 		fprintf(stdout,"Log_UDP_Open:inet_addr didn't work:trying gethostbyname(%s).\n",hostname);
 #endif
 		/* try getting by hostname instead */
-		host_entry = gethostbyname(hostname);
-		if(host_entry == NULL)
+		if(!Get_Host_By_Name(hostname,&host_address_ptr))
 		{
 			shutdown((*socket_id),SHUT_RDWR);
 			(*socket_id) = 0;
-			Log_Error_Number = 3;
-			sprintf(Log_Error_String,"Log_UDP_Open:Failed to get host address from (%s).",hostname);
 			return FALSE;
 		}
-		memcpy(&saddr,host_entry->h_addr_list[0],host_entry->h_length);
+		strcpy(host_ip,inet_ntoa(*(struct in_addr *)(host_address_ptr)));
+		if(host_address_ptr != NULL)
+			free(host_address_ptr);
+		saddr = inet_addr(host_ip);
 	}
 	/* set up socket so sends go to remote Hostname/Port_Number */
 	memset((char *) &remote_addr,0,sizeof(remote_addr));
@@ -416,8 +423,117 @@ static int64_t hton64bitl(int64_t n)
 #  endif
 # endif
 }
+
+/**
+ * Internal routine to get a host address from it's name. This is traditionally handled by a call
+ * to gethostbyname. Unfortunately that routine is not re-entrant because the pointer it returns
+ * is to a block of reusable memory in glibc, so a second call to gethostbyname from another thread
+ * in the process can lead to the pointers returned from the first call being freed leading to SIGSEGV.
+ * This routine wraps gethostbyname_r, the re-entrant version of that routine.
+ * @param name The hostname to translate. This should be allocated, zero-terminated and non-null.
+ * @param host_addr_zero The address of a pointer  to an array of chars. This routine will allocate
+ *       some memory and fill it with a null-terminated, network byte ordered copy of the first hostent host address
+ *       list entry returned by gethostbyname_r. NULL can be returned on failure.
+ * @return The routine returns TRUE on success and FALSE on failure.
+ */
+static int Get_Host_By_Name(const char *name,char **host_addr_zero)
+{
+	struct hostent hostbuf,*hp = NULL;
+	size_t hstbuflen;
+	char *tmphstbuf = NULL;
+	int retval;
+	int herr;
+
+	Log_Error_Number = 0;
+	if(name == NULL)
+	{
+		Log_Error_Number = 3;
+		sprintf(Log_Error_String,"Get_Host_By_Name:name was NULL.");
+		return FALSE;
+	}
+	if(host_addr_zero == NULL)
+	{
+		Log_Error_Number = 4;
+		sprintf(Log_Error_String,"Get_Host_By_Name:host_addr_zero was NULL.");
+		return FALSE;
+	}
+#if DEBUG > 5
+	fprintf(stdout,"Get_Host_By_Name(%s) Started.",name);
+#endif /* DEBUG */
+	hstbuflen = 1024;
+	/* Allocate buffer, remember to free it to avoid memory leakage.  */
+	tmphstbuf = malloc(hstbuflen);
+	if(tmphstbuf == NULL)
+	{
+		Log_Error_Number = 18;
+		sprintf(Log_Error_String,"Get_Host_By_Name:memory allocation of tmphstbuf failed(%d).",hstbuflen);
+		return FALSE;
+
+	}
+	while((retval = gethostbyname_r(name,&hostbuf,tmphstbuf,hstbuflen,&hp,&herr)) == ERANGE)
+	{
+		/* Enlarge the buffer.  */
+		hstbuflen *= 2;
+		tmphstbuf = realloc(tmphstbuf, hstbuflen);
+		/* check realloc succeeds */
+		if(tmphstbuf == NULL)
+		{
+			Log_Error_Number = 19;
+			sprintf(Log_Error_String,"Get_Host_By_Name:memory reallocation of tmphstbuf failed(%d).",
+				hstbuflen);
+			return FALSE;
+		}
+#if DEBUG > 5
+	fprintf(stdout,"Get_Host_By_Name:gethostbyname_r returned ERANGE:Increasing buffer size to %d.",hstbuflen);
+#endif /* DEBUG */
+	}/* while */
+#if DEBUG > 5
+	fprintf(stdout,"Get_Host_By_Name:gethostbyname_r loop exited with retval %d and hp %p.",retval,hp);
+#endif /* DEBUG */
+	if(retval != 0)
+	{
+		if(tmphstbuf != NULL)
+			free(tmphstbuf);
+		Log_Error_Number = 20;
+		sprintf(Log_Error_String,"Get_Host_By_Name:gethostbyname_r failed to find host %s (%d).",name,herr);
+		return FALSE;
+	}
+	if(hp == NULL)
+	{
+		if(tmphstbuf != NULL)
+			free(tmphstbuf);
+		Log_Error_Number = 21;
+		sprintf(Log_Error_String,
+			"Get_Host_By_Name:gethostbyname_r returned NULL return pointer for hostname %s (%d).",
+			name,herr);
+		return FALSE;
+	}
+	/* copy result */
+	(*host_addr_zero) = strdup(hp->h_addr_list[0]);
+	if((*host_addr_zero) == NULL)
+	{
+		if(tmphstbuf != NULL)
+			free(tmphstbuf);
+		Log_Error_Number = 22;
+		sprintf(Log_Error_String,"Get_Host_By_Name:"
+			"Failed to copy gethostbyname_r result string (%s).",hp->h_addr_list[0]);
+		return FALSE;
+	}
+	/* free buffer*/
+	if(tmphstbuf != NULL)
+		free(tmphstbuf);
+#if DEBUG > 5
+	fprintf(stdout,"Get_Host_By_Name(%s) Finished.",name);
+#endif /* DEBUG */
+	return TRUE;
+}
+
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.4  2009/02/13 17:29:41  cjm
+** Added __linux inclusion around Linux specific headers.
+** Not figured out Solaris equivalents yet.
+**
 ** Revision 1.3  2009/01/14 14:51:31  cjm
 ** Added magic word to UDP buffer to differentiate between C and Java packets.
 **
