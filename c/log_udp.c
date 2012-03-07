@@ -1,11 +1,11 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.6 2012-03-07 10:47:09 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.7 2012-03-07 10:50:48 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.6 $
+ * @version $Revision: 1.7 $
  */
 /**
  * Define BSD Source to get BSD prototypes, including gethostbyname_r.
@@ -43,7 +43,7 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.6 2012-03-07 10:47:09 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.7 2012-03-07 10:50:48 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
@@ -427,9 +427,8 @@ static int64_t hton64bitl(int64_t n)
  * in the process can lead to the pointers returned from the first call being freed leading to SIGSEGV.
  * This routine wraps gethostbyname_r, the re-entrant version of that routine.
  * @param name The hostname to translate. This should be allocated, zero-terminated and non-null.
- * @param host_addr_zero The address of a pointer  to an array of chars. This routine will allocate
- *       some memory and fill it with a null-terminated, network byte ordered copy of the first hostent host address
- *       list entry returned by gethostbyname_r. NULL can be returned on failure.
+ * @param inaddr The address of a struct in_addr, filled by the first entry returned by gethostbyname_r. 
+ *        NULL can be returned on failure.
  * @return The routine returns TRUE on success and FALSE on failure.
  */
 static int Get_Host_By_Name(const char *name,struct in_addr *inaddr)
@@ -517,6 +516,10 @@ static int Get_Host_By_Name(const char *name,struct in_addr *inaddr)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.6  2012/03/07 10:47:09  cjm
+** Changed Get_Host_By_Name implementation to correctly use gethostbyname_r return value,
+** which is not really a NULL-terminated string.
+**
 ** Revision 1.5  2011/09/26 15:53:58  cjm
 ** Changed gethostbyname to gethostbyname_r, to stop the autoguider crashing when multiple
 ** threads are accessing gethostbyname.
