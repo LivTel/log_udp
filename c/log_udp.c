@@ -1,11 +1,11 @@
 /* log_udp.c
 ** GLS logging using UDP packets
-** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.5 2011-09-26 15:53:58 cjm Exp $
+** $Header: /home/cjm/cvs/log_udp/c/log_udp.c,v 1.6 2012-03-07 10:47:09 cjm Exp $
 */
 /**
  * UDP packet creation and transmission routines.
  * @author Chris Mottram
- * @version $Revision: 1.5 $
+ * @version $Revision: 1.6 $
  */
 /**
  * Define BSD Source to get BSD prototypes, including gethostbyname_r.
@@ -43,13 +43,13 @@
 /**
  * Revision Control System identifier.
  */
-static char rcsid[] = "$Id: log_udp.c,v 1.5 2011-09-26 15:53:58 cjm Exp $";
+static char rcsid[] = "$Id: log_udp.c,v 1.6 2012-03-07 10:47:09 cjm Exp $";
 
 /* internal function declarations */
 static int UDP_Raw_Send(int socket_id,void *message_buff,size_t message_buff_len);
 static int UDP_Raw_Recv(int socket_id,char *message_buff,size_t message_buff_len);
 static int64_t hton64bitl(int64_t n);
-static int Get_Host_By_Name(const char *name,char **host_addr_zero);
+static int Get_Host_By_Name(const char *name,struct in_addr *inaddr);
 
 /* ---------------------------------------------------------------
 **  External functions 
@@ -67,8 +67,7 @@ static int Get_Host_By_Name(const char *name,char **host_addr_zero);
  */
 int Log_UDP_Open(char *hostname,int port_number,int *socket_id)
 {
-	char host_ip[256];
-	char *host_address_ptr = NULL;
+	struct in_addr inaddr;
 	int socket_errno,retval;
 	unsigned short int network_port_number;
 	in_addr_t saddr;
@@ -110,16 +109,13 @@ int Log_UDP_Open(char *hostname,int port_number,int *socket_id)
 		fprintf(stdout,"Log_UDP_Open:inet_addr didn't work:trying gethostbyname(%s).\n",hostname);
 #endif
 		/* try getting by hostname instead */
-		if(!Get_Host_By_Name(hostname,&host_address_ptr))
+		if(!Get_Host_By_Name(hostname,&inaddr))
 		{
 			shutdown((*socket_id),SHUT_RDWR);
 			(*socket_id) = 0;
 			return FALSE;
 		}
-		strcpy(host_ip,inet_ntoa(*(struct in_addr *)(host_address_ptr)));
-		if(host_address_ptr != NULL)
-			free(host_address_ptr);
-		saddr = inet_addr(host_ip);
+		saddr = inaddr.s_addr;
 	}
 	/* set up socket so sends go to remote Hostname/Port_Number */
 	memset((char *) &remote_addr,0,sizeof(remote_addr));
@@ -436,7 +432,7 @@ static int64_t hton64bitl(int64_t n)
  *       list entry returned by gethostbyname_r. NULL can be returned on failure.
  * @return The routine returns TRUE on success and FALSE on failure.
  */
-static int Get_Host_By_Name(const char *name,char **host_addr_zero)
+static int Get_Host_By_Name(const char *name,struct in_addr *inaddr)
 {
 	struct hostent hostbuf,*hp = NULL;
 	size_t hstbuflen;
@@ -451,10 +447,10 @@ static int Get_Host_By_Name(const char *name,char **host_addr_zero)
 		sprintf(Log_Error_String,"Get_Host_By_Name:name was NULL.");
 		return FALSE;
 	}
-	if(host_addr_zero == NULL)
+	if(inaddr == NULL)
 	{
 		Log_Error_Number = 4;
-		sprintf(Log_Error_String,"Get_Host_By_Name:host_addr_zero was NULL.");
+		sprintf(Log_Error_String,"Get_Host_By_Name:inaddr was NULL.");
 		return FALSE;
 	}
 #if DEBUG > 5
@@ -509,16 +505,7 @@ static int Get_Host_By_Name(const char *name,char **host_addr_zero)
 		return FALSE;
 	}
 	/* copy result */
-	(*host_addr_zero) = strdup(hp->h_addr_list[0]);
-	if((*host_addr_zero) == NULL)
-	{
-		if(tmphstbuf != NULL)
-			free(tmphstbuf);
-		Log_Error_Number = 22;
-		sprintf(Log_Error_String,"Get_Host_By_Name:"
-			"Failed to copy gethostbyname_r result string (%s).",hp->h_addr_list[0]);
-		return FALSE;
-	}
+	(*inaddr) = *(struct in_addr *)(hp->h_addr_list[0]);
 	/* free buffer*/
 	if(tmphstbuf != NULL)
 		free(tmphstbuf);
@@ -530,6 +517,11 @@ static int Get_Host_By_Name(const char *name,char **host_addr_zero)
 
 /*
 ** $Log: not supported by cvs2svn $
+** Revision 1.5  2011/09/26 15:53:58  cjm
+** Changed gethostbyname to gethostbyname_r, to stop the autoguider crashing when multiple
+** threads are accessing gethostbyname.
+** See fault #1857.
+**
 ** Revision 1.4  2009/02/13 17:29:41  cjm
 ** Added __linux inclusion around Linux specific headers.
 ** Not figured out Solaris equivalents yet.
