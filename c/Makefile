@@ -1,4 +1,4 @@
-# $Header: /home/cjm/cvs/log_udp/c/Makefile,v 1.2 2015-06-05 11:33:32 cjm Exp $
+# $Header: /home/cjm/cvs/log_udp/c/Makefile,v 1.3 2015-06-05 14:52:48 cjm Exp $
 
 include	../../Makefile.common
 include	../Makefile.common
@@ -10,7 +10,7 @@ DOCSDIR 	= $(LOG_DOC_HOME)/cdocs
 
 DEBUG           = 0
 #DEBUG           = 2
-CFLAGS = -g $(CCHECKFLAG) -I$(INCDIR) -L$(LT_LIB_HOME) -DDEBUG=$(DEBUG)
+CFLAGS = -g $(CCHECKFLAG) $(SHARED_LIB_CFLAGS) -I$(INCDIR) -L$(LT_LIB_HOME) -DDEBUG=$(DEBUG)
 
 LINTFLAGS = -I$(INCDIR) -I$(JNIINCDIR) -I$(JNIMDINCDIR)
 DOCFLAGS = -static
@@ -70,6 +70,9 @@ backup: tidy
 
 #
 # $Log: not supported by cvs2svn $
+# Revision 1.2  2015/06/05 11:33:32  cjm
+# Changed HEADERS to full path.
+#
 # Revision 1.1  2009/01/09 14:54:43  cjm
 # Initial revision
 #
