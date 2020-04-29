@@ -1,0 +1,168 @@
+How do I tail /var/log/messages, when syslogd performs logs rolling?
+
+logck
+-----
+http://www.unix.com/high-level-programming/94863-want-get-var-log-messages-redirected-fifo.html
+
+
+http://www.koders.com/c/fid8DEE98A42C35A1346FA89C328CC3BF94E25CF377.aspx
+
+tail -f  = tail_forever
+
+/* Tail NFILES (>1) files forever until killed.  The file names are in
+   NAMES.  The open file descriptors are in `file_descs', and the size
+   at which we stopped tailing them is in `file_sizes'.  We loop over
+   each of them, doing an fstat to see if they have changed size.  If
+   none of them have changed size in one iteration, we sleep for a
+   second and try again.  We do this until the user interrupts us.  */
+
+static void tail_forever(char **names, int nfiles)
+{
+	int last;
+
+	last = -1;
+
+	while (1) {
+		int i;
+		int changed;
+
+		changed = 0;
+		for (i = 0; i < nfiles; i++) {
+			struct stat stats;
+
+			if (file_descs[i] < 0)
+				continue;
+			if (fstat(file_descs[i], &stats) < 0) {
+				detailed_error(0, errno, "%s", names[i]);
+				file_descs[i] = -1;
+				continue;
+			}
+			if (stats.st_size == file_sizes[i])
+				continue;
+
+			/* This file has changed size.  Print out what we can, and
+			   then keep looping.  */
+
+			changed = 1;
+
+			if (stats.st_size < file_sizes[i]) {
+				write_header(names[i], "file truncated");
+				last = i;
+				lseek(file_descs[i], stats.st_size, SEEK_SET);
+				file_sizes[i] = stats.st_size;
+				continue;
+			}
+
+			if (i != last) {
+				if (print_headers)
+					write_header(names[i], NULL);
+				last = i;
+			}
+			file_sizes[i] += dump_remainder(names[i], file_descs[i]);
+		}
+
+		/* If none of the files changed size, sleep.  */
+		if (!changed)
+			sleep(1);
+	}
+}
+
+/* Display file FILENAME from the current position in FD to the end.
+   If `forever' is nonzero, keep reading from the end of the file
+   until killed.  Return the number of bytes read from the file.  */
+
+static long dump_remainder(const char *filename, int fd)
+{
+	char buffer[BUFSIZ];
+	int bytes_read;
+	long total;
+
+	total = 0;
+  output:
+	while ((bytes_read = fullRead(fd, buffer, BUFSIZ)) > 0) {
+		XWRITE(STDOUT_FILENO, buffer, bytes_read);
+		total += bytes_read;
+	}
+	if (bytes_read == -1)
+		detailed_error(EXIT_FAILURE, errno, "%s", filename);
+	if (forever) {
+		fflush(stdout);
+		sleep(1);
+		goto output;
+	} else {
+		if (forever_multiple)
+			fflush(stdout);
+	}
+
+	return total;
+}
+
+
+Example /var/log/messages:
+
+ltobs9
+
+Jan 15 20:10:37 ltobs9 modprobe: modprobe: Can't locate module sound-service-1-0
+Jan 15 20:17:25 ltobs9 gdm(pam_unix)[5232]: session closed for user cjm
+Jan 15 20:19:13 ltobs9 gconfd (cjm-1085): GConf server is not in use, shutting down.
+Jan 15 20:19:13 ltobs9 gconfd (cjm-1085): Exiting
+
+
+Month Day Time machine subsystem: message
+
+As root:
+/home/dev/bin/log_udp/test/i386-linux/messages_to_udp_static -v terse -s "Messages" -i -ip ltproxy -p 2225 -f /var/log/messages
+/home/dev/bin/log_udp/test/i386-linux/messages_to_udp_static -v terse -s "Messages" -i -ip ltdev1 -p 2731 -f /var/log/messages
+
+
+syslogd remote messages
+-----------------------
+
+http://www.linuxjournal.com/article/5476
+*.emerg          @mothership.mydomain.org
+
+
+mail.notice     /var/log/mail
+selector
+facility(message category).priority         action
+
+Facilities
+----------
+auth, authpriv, cron, dæmon, kern, lpr, mail, mark, news, syslog, user, UUCP and local0 through local7
+
+Priorities
+----------
+
+(in increasing order of urgency): debug, info, notice, warning, err, crit, alert and emerg.
+
+As with facilities, the wildcards * and none also may be used. 
+Only one priority or wildcard may be specified per selector. A priority may be preceded by either or both of the modifiers = and !.
+
+QNX syslogd
+
+http://www.qnx.com/developers/docs/qnx_4.25_docs/qnx4/utils/s/syslogd.html
+
+*.*   @occ
+
+http://www.qnx.com/developers/docs/qnx_4.25_docs/qnx4/utils/k/kill.html
+kill -HUP <pid of syslogd>
+
+NB
+occ /etc/syslog.conf has crond messages forwarded to @mcc.
+This means you could end up with a circular syslog forwarding.
+
+TCS Logs
+--------
+Jan 20 00:00:40 <INFO>    USER  90001  
+
+<NOTICE>|<INFO>|<WARNING>|<CRIT> into  verbosity.
+
+
+field 3 (DISPL|USER|SYNC|NETWK|OWN|COMMS|ACP|DATAX|TV|MOTH) looks like a 
+subsystem
+
+field 4 90000/90001/90055/90042/90009/9004B/90040/9003D/9001C/90063 other 
+numbers
+
+
+(/home/dev/bin/log_udp/test/i386-linux/tcs_to_udp_static -ip ltproxy -p 1234 -f TCS20090120.LOG\; > tcs_to_udp_static-`date +"%Y-%m-%dT%H:%M:%S"`_log.txt ) >&  tcs_to_udp_static-`date +"%Y-%m-%dT%H:%M:%S"`_error.txt

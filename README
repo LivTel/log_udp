@@ -1,0 +1,3 @@
+C code for logging to the GLS (GlobalLoggingSystem).
+This code supports a library and client programs for creating packets containing Log messages, and
+transmitting them to the Java GLS using UDP packets.
