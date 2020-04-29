@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# Liverpool John Moores University
+#
+# chkconfig: 345 99 01
+# description: /var/log/messages to UDP log generator
+# pidfile: /home/eng/messages_to_udp/messages_to_udp.pid
+# $Header: /home/cjm/cvs/log_udp/scripts/messagestoudp.occ,v 1.1 2020-04-29 10:26:43 cjm Exp $
+MTU_HOME=/home/eng/messages_to_udp
+MTU_EXE=messages_to_udp_static
+MTU_PIDFILE=/${MTU_HOME}/messages_to_udp.pid
+MTU_DATE=`/bin/date +"%Y-%m-%dT%H:%M:%S"`
+MTU_LOG=/${MTU_HOME}/messages_to_udp_log_${MTU_DATE}.txt
+MTU_ERROR_LOG=/${MTU_HOME}/messages_to_udp_error_${MTU_DATE}.txt
+MTU_HOST=ltproxy
+MTU_PORT=2371
+MTU_SYSTEM=Messages
+# one of veryterse|terse|intermediate|verbose|veryverbose
+MTU_VERBOSITY=terse
+MTU_MESSAGE_FILE=/var/log/messages
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+start)
+	/bin/rm -f ${MTU_PIDFILE}
+	cd ${MTU_HOME}
+	echo "Messages to UDP start."
+	${MTU_HOME}/${MTU_EXE} -i -ip ${MTU_HOST} -p ${MTU_PORT} -v ${MTU_VERBOSITY} -s ${MTU_SYSTEM} -f ${MTU_MESSAGE_FILE} 1> ${MTU_LOG} 2> ${MTU_ERROR_LOG} &
+	echo $! > ${MTU_PIDFILE}
+	;;
+stop)
+	echo "Messages to UDP stop."
+	PID=`cat ${MTU_PIDFILE}`
+	kill ${PID}
+	;;
+*)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+	;;
+esac
+
+if [ $? != 0 ]; then
+	echo "$status"
+	exit 1
+fi
+exit 0
+#
+# $Log: not supported by cvs2svn $
+#
