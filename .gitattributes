@@ -1,0 +1,6 @@
+*.c filter=rcs-keywords
+*.h filter=rcs-keywords
+Makefile filter=rcs-keywords
+Makefile.common filter=rcs-keywords
+README filter=rcs-keywords
+messagestoudp.occ filter=rcs-keywords
