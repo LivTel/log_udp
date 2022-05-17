@@ -13,7 +13,7 @@ DEBUG           = 2
 CFLAGS 		= -g -I$(INCDIR) -DDEBUG=$(DEBUG)
 DOCFLAGS 	= -static
 
-SRCS 		= ltlog.c messages_to_udp.c tcs_to_udp.c
+SRCS 		= ltlog.c messages_to_udp.c tcs_to_udp.c log_buffer.c
 
 OBJS 		= $(SRCS:%.c=$(BINDIR)/%.o)
 PROGS 		= $(SRCS:%.c=$(BINDIR)/%)
@@ -22,13 +22,22 @@ DOCS 		= $(SRCS:%.c=$(DOCSDIR)/%.html)
 
 top: $(PROGS) $(PROGS_STATIC) docs
 
+$(BINDIR)/log_buffer: $(BINDIR)/log_buffer.o
+	cc -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB) -lcommandserver -lpthread -lm -lc
+
 $(BINDIR)/%: $(BINDIR)/%.o
 	cc -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB) -lm -lc
 
 $(BINDIR)/%_static: $(LT_LIB_HOME)/lib$(LOG_LIBNAME).a
 
+$(BINDIR)/log_buffer_static: $(BINDIR)/log_buffer.o
+	cc -static -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB)  -lcommandserver -lpthread -lm -lc
+
 $(BINDIR)/%_static: $(BINDIR)/%.o
 	cc -static -o $@ $< -L$(LT_LIB_HOME) -l$(LOG_LIBNAME) $(TIMELIB) $(SOCKETLIB) -lm -lc
+
+$(BINDIR)/log_buffer.o: log_buffer.c
+	$(CC) $(CFLAGS) -I$(LT_SRC_HOME)/commandserver/include -c $< -o $@
 
 $(BINDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
