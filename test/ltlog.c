@@ -2,6 +2,7 @@
 ** $Header: /home/cjm/cvs/log_udp/test/ltlog.c,v 1.1 2009-01-09 14:54:44 cjm Exp $
 */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "log_general.h"
 #include "log_udp.h"
