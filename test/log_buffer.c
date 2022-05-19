@@ -193,6 +193,7 @@ static int Allocate_Buffers(void)
 		fprintf(stderr,"Failed to allocate Log_Buffer to length %d.\n",Log_Buffer_Length);
 		return FALSE;
 	}
+	Log_Buffer[0] = '\0';
 	if(Log_Buffer_Line_List == NULL)
 	{
 		Log_Buffer_Line_List = (struct Log_Buffer_Line_Struct*)malloc(Log_Buffer_Line_List_Count*sizeof(struct Log_Buffer_Line_Struct));
@@ -268,11 +269,14 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 	int input_buffer_length,input_line_index,line_index,done;
 	int input_line_index_start_pos, input_line_index_end_pos;
 	int overlap1,overlap2,overlap3,overlap4,overlap;
-	
+
+#if DEBUG > 0
+	fprintf(stdout,"Log_Buffer_Add_Line: '%s' (%ld).\n",input_buffer, strlen(input_buffer));
+#endif
 	/* find line index in Log_Buffer_Line_List to use for new line */
-	if((Log_Buffer_Line_End_Index+1) < Log_Buffer_Line_List_Count)
+	if(Log_Buffer_Line_End_Index < Log_Buffer_Line_List_Count)
 	{
-		input_line_index = (Log_Buffer_Line_End_Index+1);
+		input_line_index = Log_Buffer_Line_End_Index;
 		Log_Buffer_Line_End_Index++;
 	}
 	else
@@ -287,6 +291,9 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 		if(Log_Buffer_Line_Start_Index == Log_Buffer_Line_List_Count)
 			Log_Buffer_Line_Start_Index = 0;
 	}
+#if DEBUG > 0
+	fprintf(stdout,"Log_Buffer_Add_Line: input line index = %d.\n",input_line_index);
+#endif
 	/* add input_buffer text to log buffer */
 	input_buffer_length = strlen(input_buffer);
 	if((Log_Buffer_End_Index+input_buffer_length) < Log_Buffer_Length)
@@ -376,7 +383,7 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 	char *reply_string_ptr = NULL;
 	char *client_message = NULL;
 	int retval;
-	int seconds,i,n,line_count,line_list_line_count,line_index;
+	int seconds,i,n,line_count,line_list_line_count,line_index,line_line_index;
 
 	/* get message from client */
 	retval = Command_Server_Read_Message(connection_handle, &client_message);
@@ -398,7 +405,7 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 		Send_Reply(connection_handle, "help:\n"
 			   "\tbuffer positions\n"
 			   "\tlast <n>\n"
-			   "\tline count|indexes\n"
+			   "\tline count|indexes|index <n>|print <n>\n"
 			   "\tsince <YYYY-MM-DDThh:mm:ss>\n"
 			   "\tshutdown\n");
 	}
@@ -415,10 +422,10 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 		line_list_line_count = Line_List_Line_Count_Get();
 		if(line_count > line_list_line_count)
 			line_count = line_list_line_count;
-		for(int i = 0; i < line_count;i++)
+		for(int i = line_list_line_count-line_count; i < line_list_line_count;i++)
 		{
 			line_index = Line_List_Line_Index_Get(i);
-			if((line_index > 0)&&(line_index < Log_Buffer_Line_List_Count))
+			if((line_index >= 0)&&(line_index < Log_Buffer_Line_List_Count))
 			{
 				if(!Add_Line_To_String(line_index,&reply_string_ptr))
 				{
@@ -427,7 +434,8 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 				}
 			}
 			else
-				fprintf(stderr,"last: Out of range line index '%d' computed (s=%d,e=%d,c=%c).",line_index,
+				fprintf(stderr,"last: Out of range line index '%d/%d' computed (s=%d,e=%d,c=%d).",
+					i,line_index,
 					Log_Buffer_Line_Start_Index,Log_Buffer_Line_End_Index,Log_Buffer_Line_List_Count);
 		}
 		Send_Reply(connection_handle, reply_string_ptr);
@@ -441,6 +449,49 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 	{
 		sprintf(reply_string,"Line Indexes: Start:  %d End: %d",Log_Buffer_Line_Start_Index,Log_Buffer_Line_End_Index);
 		Send_Reply(connection_handle, reply_string);
+	}
+	else if(strncmp(client_message, "line index ",11) == 0)
+	{
+		retval = sscanf(client_message,"line index %d",&line_index);
+		if(retval != 1)
+		{
+			sprintf(reply_string,"Could not parse line index(%d): %s.",retval,client_message);
+			Send_Reply(connection_handle, reply_string);
+			return;
+		}
+		if((line_index >= 0)&&(line_index < Line_List_Line_Count_Get()))
+			sprintf(reply_string,"Line Index %d: Start Pos: %d End Pos: %d",line_index,
+				Log_Buffer_Line_List[line_index].Start_Pos,Log_Buffer_Line_List[line_index].End_Pos);
+		else
+			sprintf(reply_string,"Line Index %d: Out of line range 0 .. %d.",line_index,
+				Line_List_Line_Count_Get());
+		Send_Reply(connection_handle, reply_string);
+	}
+	else if(strncmp(client_message, "line print ",11) == 0)
+	{
+		retval = sscanf(client_message,"line print %d",&line_index);
+		if(retval != 1)
+		{
+			sprintf(reply_string,"Could not parse line print(%d): %s.",retval,client_message);
+			Send_Reply(connection_handle, reply_string);
+			return;
+		}
+		if((line_index >= 0)&&(line_index < Line_List_Line_Count_Get()))
+		{
+			line_line_index = Line_List_Line_Index_Get(line_index);
+			if(!Add_Line_To_String(line_line_index,&reply_string_ptr))
+			{
+				fprintf(stderr,"line print: Add_Line_To_String (line_index %d/%d of %d) failed.\n",
+					line_index,line_line_index,line_count);
+			}
+			Send_Reply(connection_handle,reply_string_ptr);
+		}
+		else
+		{
+			sprintf(reply_string,"Line Index %d: Out of line range 0 .. %d.",line_index,
+				Line_List_Line_Count_Get());
+			Send_Reply(connection_handle, reply_string);
+		}
 	}
 	else if(strcmp(client_message, "shutdown") == 0)
 	{
@@ -516,7 +567,7 @@ static int Line_List_Line_Index_Get(int index)
  */
 static int Add_Line_To_String(int line_index,char **string_ptr)
 {
-	int line_length;
+	int line_length,new_string;
 	
 	if(string_ptr  == NULL)
 	{
@@ -528,20 +579,30 @@ static int Add_Line_To_String(int line_index,char **string_ptr)
 		fprintf(stderr,"Add_Line_To_String: line_index %d is out of range (%d).\n",line_index,Log_Buffer_Line_List_Count);
 		return FALSE;
 	}
+#if DEBUG > 0
+	fprintf(stdout,"Add_Line_To_String:line_index = %d.\n",line_index);
+#endif
 	line_length = (Log_Buffer_Line_List[line_index].End_Pos - Log_Buffer_Line_List[line_index].Start_Pos);
+#if DEBUG > 0
+	fprintf(stdout,"Add_Line_To_String:line_index = %d, line_length = %d.\n",line_index,line_length);
+#endif
 	if((*string_ptr) == NULL)
 	{
 		(*string_ptr) = (char*)malloc((line_length+1)*sizeof(char));
+		new_string = TRUE;
 	}
 	else
 	{
 		(*string_ptr) = (char*)realloc((*string_ptr),(strlen((*string_ptr))+line_length+1)*sizeof(char));
+		new_string = FALSE;
 	}
 	if((*string_ptr) == NULL)
 	{
 		fprintf(stderr,"Add_Line_To_String:Failed to malloc string (%lu,%d).\n",strlen((*string_ptr)),line_length+1);
 		return FALSE;
 	}
+	if(new_string)
+		(*string_ptr)[0] = '\0';
 	strncat((*string_ptr),Log_Buffer+Log_Buffer_Line_List[line_index].Start_Pos,line_length);
 	return TRUE;
 }
