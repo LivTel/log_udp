@@ -39,7 +39,7 @@
 /**
  * Default number of lines in the log buffer line list.
  */
-#define DEFAULT_LOG_BUFFER_LINE_LIST_COUNT (1024)
+#define DEFAULT_LOG_BUFFER_LINE_LIST_COUNT (100*1024)
 
 /* structures */
 struct Log_Buffer_Line_Struct
@@ -399,11 +399,14 @@ static int Setup_Command_Server(void)
  */
 static void Server_Connection_Callback(Command_Server_Handle_T connection_handle)
 {
+	struct tm tm_time;
+	time_t seconds_since_the_epoch;
 	char reply_string[256];
 	char *reply_string_ptr = NULL;
 	char *client_message = NULL;
 	int retval;
-	int seconds,i,n,line_count,line_list_line_count,line_index,line_line_index;
+	int i,n,line_count,line_list_line_count,line_index,line_line_index;
+	int year,month,day,hour,min,secs;
 
 	/* get message from client */
 	retval = Command_Server_Read_Message(connection_handle, &client_message);
@@ -423,11 +426,18 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 	{
 		printf("log_buffer server: help detected.\n");
 		Send_Reply(connection_handle, "help:\n"
+			   /*
+			   "\tbefore <YYYY-MM-DDThh:mm:ss>\n"
+			   "\tbetween <YYYY-MM-DDThh:mm:ss>\n"
+			   */
 			   "\tbuffer positions\n"
+			   /*"\tdaterange\n"*/
 			   "\tlast <n>\n"
 			   "\tline count|indexes|index <n>|print <n>\n"
 			   "\tsince <YYYY-MM-DDThh:mm:ss>\n"
-			   "\tshutdown\n");
+			   "\tshutdown\n"
+			   "\n"
+			   "'last' and 'since' are not compatible with send_command, use telnet for these commands.\n");
 	}
 	else if(strncmp(client_message, "last",4) == 0)
 	{
@@ -512,6 +522,54 @@ static void Server_Connection_Callback(Command_Server_Handle_T connection_handle
 				Line_List_Line_Count_Get());
 			Send_Reply(connection_handle, reply_string);
 		}
+	}
+	else if(strncmp(client_message, "since",5) == 0)
+	{
+		/* since <YYYY-MM-DDThh:mm:ss> */
+		retval = sscanf(client_message,"since %d-%d-%dT%d:%d:%d",&year,&month,&day,&hour,&min,&secs);
+		if(retval != 6)
+		{
+			sprintf(reply_string,"Could not parse since(%d): %s.",retval,client_message);
+			Send_Reply(connection_handle, reply_string);
+			return;
+		}
+		tm_time.tm_sec = secs;
+		tm_time.tm_min = min;
+		tm_time.tm_hour = hour;
+		tm_time.tm_mday = day;
+		tm_time.tm_mon = month-1;/* tm_mon goes from 0-11 */
+		tm_time.tm_year = year-1900;/* tm_year is year from 1900 */
+		tm_time.tm_isdst = 0; /* no daylight saving time */
+		seconds_since_the_epoch = mktime(&tm_time);
+		if(seconds_since_the_epoch == -1)
+		{
+			sprintf(reply_string,"Could not mktime from '%s': year=%d,month=%d,day=%d,hour=%d,min=%d,secs=%d.",
+				client_message,year,month,day,hour,min,secs);
+			Send_Reply(connection_handle, reply_string);
+			return;
+		}
+		reply_string_ptr = NULL;
+		line_list_line_count = Line_List_Line_Count_Get();
+		for(int i = 0; i < line_list_line_count;i++)
+		{
+			line_index = Line_List_Line_Index_Get(i);
+			if((line_index >= 0)&&(line_index < Log_Buffer_Line_List_Count))
+			{
+				if(Log_Buffer_Line_List[line_index].Timestamp.tv_sec > seconds_since_the_epoch)
+				{
+					if(!Add_Line_To_String(line_index,&reply_string_ptr))
+					{
+						fprintf(stderr,"since: Add_Line_To_String (line_index %d/%d of %d) failed.\n",i,
+							line_index,line_count);
+					}
+				}
+			}
+			else
+				fprintf(stderr,"since: Out of range line index '%d/%d' computed (s=%d,e=%d,c=%d).",
+					i,line_index,
+					Log_Buffer_Line_Start_Index,Log_Buffer_Line_End_Index,Log_Buffer_Line_List_Count);
+		}
+		Send_Reply(connection_handle, reply_string_ptr);
 	}
 	else if(strcmp(client_message, "shutdown") == 0)
 	{
@@ -701,4 +759,6 @@ static void Help(void)
 {
 	fprintf(stdout,"log_buffer help.\n");
 	fprintf(stdout,"log_buffer -p[ort_number] <n> [-help]\n");
+	fprintf(stdout,"Telnet / use send_command on the specified port to access the stored logs: "
+		"use 'help' to see commands supported\n");
 }
