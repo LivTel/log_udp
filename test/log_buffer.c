@@ -158,6 +158,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr,"log_buffer:Failed to setup command server.\n");
 		return 2;
 	}
+	/* test of input/ buffer filling */
+	/*Input_Thread(NULL);*/
 	/* start a thread to read lines from stdin, and put them in the log buffer */
 	if(!Start_Input_Thread())
 	{
@@ -243,7 +245,7 @@ static void *Input_Thread(void *user_arg)
 	
 	while(stdin != NULL)
 	{
-		ch_ptr = fgets(input_buffer,1024,stdin);
+		ch_ptr = fgets(input_buffer,1023,stdin);
 		if(ch_ptr != NULL)
 		{
 			Log_Buffer_Add_Line(input_buffer);
@@ -292,12 +294,17 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 			Log_Buffer_Line_Start_Index = 0;
 	}
 #if DEBUG > 0
-	fprintf(stdout,"Log_Buffer_Add_Line: input line index = %d.\n",input_line_index);
+	fprintf(stdout,"Log_Buffer_Add_Line: input line index = %d, start_index = %d, end_index = %d.\n",input_line_index,
+		Log_Buffer_Line_Start_Index,Log_Buffer_Line_End_Index);
 #endif
 	/* add input_buffer text to log buffer */
 	input_buffer_length = strlen(input_buffer);
 	if((Log_Buffer_End_Index+input_buffer_length) < Log_Buffer_Length)
 	{
+#if DEBUG > 0
+		fprintf(stdout,"Log_Buffer_Add_Line: Adding to end of log buffer: start_pos = %d, end_pos = %d, length = %d.\n",
+			Log_Buffer_End_Index,Log_Buffer_End_Index+input_buffer_length,input_buffer_length);
+#endif
 		/* if the new line will fit into the end of the buffer, add it there */
 		strcat(Log_Buffer+Log_Buffer_End_Index,input_buffer);
 		Log_Buffer_Line_List[input_line_index].Start_Pos = Log_Buffer_End_Index;
@@ -307,10 +314,14 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 	}
 	else
 	{
+#if DEBUG > 0
+		fprintf(stdout,"Log_Buffer_Add_Line: Adding to start of log buffer: start_pos = %d, end_pos = %d, length = %d.\n",
+			0,input_buffer_length,input_buffer_length);
+#endif
 		/* this line will go at the start of the buffer */
-		strcat(Log_Buffer,input_buffer);
+		strcpy(Log_Buffer,input_buffer);
 		Log_Buffer_Line_List[input_line_index].Start_Pos = 0;
-		Log_Buffer_End_Index += input_buffer_length;
+		Log_Buffer_End_Index = input_buffer_length;
 		Log_Buffer_Line_List[input_line_index].End_Pos = Log_Buffer_End_Index;
 		clock_gettime(CLOCK_REALTIME,&(Log_Buffer_Line_List[input_line_index].Timestamp));
 	}
@@ -319,6 +330,10 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 	done = FALSE;
 	input_line_index_start_pos = Log_Buffer_Line_List[input_line_index].Start_Pos;
 	input_line_index_end_pos = Log_Buffer_Line_List[input_line_index].End_Pos;
+#if DEBUG > 0
+	fprintf(stdout,"Log_Buffer_Add_Line: Checking for line overlaps with buffer positions : start_pos = %d, end_pos = %d.\n",
+		input_line_index_start_pos,input_line_index_end_pos);
+#endif
 	while(done == FALSE)
 	{
 		/* overlap1
@@ -344,6 +359,11 @@ static int Log_Buffer_Add_Line(char *input_buffer)
 		overlap = overlap1|overlap2|overlap3|overlap4;
 		if(overlap)
 		{
+#if DEBUG > 0
+			fprintf(stdout,"Log_Buffer_Add_Line: line overlap found at line index %d with buffer positions:"
+				" start_pos = %d, end_pos = %d.\n",
+				line_index,Log_Buffer_Line_List[line_index].Start_Pos,Log_Buffer_Line_List[line_index].End_Pos);
+#endif
 			line_index++;
 			Log_Buffer_Line_Start_Index++;
 			if(Log_Buffer_Line_Start_Index == Log_Buffer_Line_List_Count)

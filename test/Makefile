@@ -8,8 +8,8 @@ TESTDIR 	= test
 BINDIR 		= $(LOG_BIN_HOME)/$(TESTDIR)/$(HOSTTYPE)
 DOCSDIR 	= $(LOG_DOC_HOME)/$(TESTDIR)
 
-#DEBUG           = 0
-DEBUG           = 2
+DEBUG           = 0
+#DEBUG           = 2
 CFLAGS 		= -g -I$(INCDIR) -DDEBUG=$(DEBUG)
 DOCFLAGS 	= -static
 
